@@ -404,6 +404,7 @@ async function init() {
   // Load settings
   currentSettings = await window.usageApi.loadSettings();
   applySettings();
+  restoreZoom();
   // Fetch usage for enabled providers only
   await refreshAll();
   updateTime();
@@ -417,6 +418,18 @@ const ZOOM_MAX = 200;
 
 function applyZoom() {
   document.body.style.zoom = `${zoomLevel}%`;
+  // Persist zoom level
+  if (currentSettings) {
+    currentSettings.zoomLevel = zoomLevel;
+    window.usageApi.saveSettings(currentSettings);
+  }
+}
+
+function restoreZoom() {
+  if (currentSettings && currentSettings.zoomLevel) {
+    zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, currentSettings.zoomLevel));
+    document.body.style.zoom = `${zoomLevel}%`;
+  }
 }
 
 window.addEventListener('wheel', (e) => {

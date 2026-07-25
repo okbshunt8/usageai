@@ -769,9 +769,17 @@ function saveSettings(settings) {
 }
 
 function createWindow() {
+  // Restore saved window bounds and zoom
+  const settings = loadSettings();
+  const wb = settings.windowBounds || {};
+  const bounds = {
+    width: wb.width || 980,
+    height: wb.height || 760,
+    ...(wb.x !== undefined && wb.y !== undefined ? { x: wb.x, y: wb.y } : {})
+  };
+
   const window = new BrowserWindow({
-    width: 980,
-    height: 760,
+    ...bounds,
     minWidth: 760,
     minHeight: 620,
     backgroundColor: '#f6f8fb',
@@ -784,6 +792,22 @@ function createWindow() {
     },
     show: false
   });
+
+  // Save window position/size on move or resize (debounced)
+  let saveTimer;
+  const saveWindowState = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      if (window.isMinimized() || window.isMaximized()) return;
+      const b = window.getBounds();
+      const current = loadSettings();
+      current.windowBounds = { x: b.x, y: b.y, width: b.width, height: b.height };
+      saveSettings(current);
+    }, 500);
+  };
+  window.on('resize', saveWindowState);
+  window.on('move', saveWindowState);
+
   // Show the window as soon as the first paint is ready so it appears instantly
   // without a white flash. Usage data is fetched asynchronously by the renderer.
   window.once('ready-to-show', () => window.show());
