@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UsageAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Manrope:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <h1 class="topbar-title">AI 使用状況</h1>
+        <div class="topbar-actions">
+          <span class="last-updated">最終更新: <strong id="updatedAt">たった今</strong></span>
+          <button id="refreshButton" class="refresh-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 0 0-14.5-4.7L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.5 4.7L21 15"/><path d="M21 20v-5h-5"/></svg>
+            <span>最新情報に更新</span>
+          </button>
+          <button id="settingsButton" class="icon-button" aria-label="設定" title="表示設定">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="m19.4 13.5 1.1.9-1.9 3.2-1.4-.6a7.8 7.8 0 0 1-2 .9L15 19.4h-3.7l-.3-1.5a7.8 7.8 0 0 1-2-.9l-1.4.6-1.9-3.2 1.1-.9a7.2 7.2 0 0 1 0-2.3l-1.1-.9L7.6 7l1.4.6a7.8 7.8 0 0 1 2-.9l.3-1.5H15l.3 1.5a7.8 7.8 0 0 1 2 .9l1.4-.6 1.9 3.2-1.1.9a7.2 7.2 0 0 1-.1 2.4Z"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="provider-stack" aria-label="サービスごとの使用状況">
+        <section class="provider-section claude-section" aria-labelledby="claude-title" data-provider="claude">
+          <header class="provider-header">
+            <div class="provider-id"><div class="provider-logo claude-logo">⟡</div><div><p class="card-kicker">ANTHROPIC</p><h2 id="claude-title">Claude</h2></div></div>
+            <div class="provider-meta"><span id="claudePlan" class="plan">確認中</span><span id="claudeConnection" class="connection"><i></i><span>CLIから取得</span></span></div>
+          </header>
+          <div class="limit-grid">
+            <article class="limit-card">
+              <div class="limit-heading"><span>現在のセッション</span><span id="claudeSessionStatus" class="status active">確認中</span></div>
+              <div class="meter-label"><span>5時間制限</span><strong id="sessionPercent">76.0%</strong></div>
+              <div class="progress-track coral-track"><div id="sessionProgress" class="progress-fill coral" style="width: 76%"></div></div>
+              <p class="reset-label">リセットまで <strong id="sessionReset">3時間18分</strong><span id="sessionTime"> · 本日 18:40</span></p>
+            </article>
+            <article class="limit-card">
+              <div class="limit-heading"><span>すべてのモデル</span><span id="claudeWeeklyStatus" class="status">確認中</span></div>
+              <div class="meter-label"><span>週間制限</span><strong id="weeklyPercent">49.0%</strong></div>
+              <div class="progress-track blue-track"><div id="weeklyProgress" class="progress-fill blue" style="width: 49%"></div></div>
+              <p class="reset-label">リセットまで <strong id="weeklyReset">4日12時間</strong><span id="weeklyTime"> · 日曜日 7:00</span></p>
+            </article>
+          </div>
+        </section>
+
+        <section class="provider-section codex-section" aria-labelledby="codex-title" data-provider="codex">
+          <header class="provider-header">
+            <div class="provider-id"><div class="provider-logo codex-logo">⌘</div><div><p class="card-kicker">OPENAI</p><h2 id="codex-title">Codex</h2></div></div>
+            <div class="provider-meta"><span id="codexPlan" class="plan">確認中</span><span id="codexConnection" class="connection"><i></i><span>CLIから取得</span></span></div>
+          </header>
+          <div class="limit-grid">
+            <article class="limit-card">
+              <div class="limit-heading"><span>現在のセッション</span><span id="codexSessionStatus" class="status codex-status">確認中</span></div>
+              <div class="meter-label"><span id="codexSessionLabel">5時間制限</span><strong id="codexSessionPercent">32.0%</strong></div>
+              <div class="progress-track violet-track"><div id="codexSessionProgress" class="progress-fill violet" style="width: 32%"></div></div>
+              <p class="reset-label">リセットまで <strong id="codexSessionReset">1時間42分</strong><span id="codexSessionTime"> · 本日 17:04</span></p>
+            </article>
+            <article class="limit-card">
+              <div class="limit-heading"><span>すべてのモデル</span><span id="codexWeeklyStatus" class="status codex-status">確認中</span></div>
+              <div class="meter-label"><span id="codexWeeklyLabel">週間制限</span><strong id="codexWeeklyPercent">64.0%</strong></div>
+              <div class="progress-track green-track"><div id="codexWeeklyProgress" class="progress-fill green" style="width: 64%"></div></div>
+              <p class="reset-label">リセットまで <strong id="codexWeeklyReset">2日8時間</strong><span id="codexWeeklyTime"> · 土曜日 00:00</span></p>
+            </article>
+          </div>
+        </section>
+
+        <section class="provider-section kiro-section" aria-labelledby="kiro-title" data-provider="kiro">
+          <header class="provider-header">
+            <div class="provider-id"><div class="provider-logo kiro-logo"><svg viewBox="0 0 32 32" width="20" height="20" aria-hidden="true"><path d="M16 2C9.4 2 4 7 4 13v11c0 1 .5 2.2 1.2 2.8.5.4 1 .2 1.3-.3l1.5-2.5 1.5 2.5c.3.5.9.5 1.2 0l1.5-2.5 1.5 2.5c.3.5.9.5 1.2 0L16 24l1.1 2.5c.3.5.9.5 1.2 0l1.5-2.5 1.5 2.5c.3.5.9.5 1.2 0l1.5-2.5 1.5 2.5c.3.5.8.7 1.3.3.7-.6 1.2-1.8 1.2-2.8V13c0-6-5.4-11-12-11Z" fill="#fff" stroke="#ccc" stroke-width=".7"/><ellipse cx="12" cy="14" rx="2.2" ry="3" fill="#222"/><ellipse cx="20" cy="14" rx="2.2" ry="3" fill="#222"/></svg></div><div><p class="card-kicker">AWS</p><h2 id="kiro-title">Kiro</h2></div></div>
+            <div class="provider-meta"><span id="kiroPlan" class="plan">確認中</span><span id="kiroConnection" class="connection"><i></i><span>CLIから取得</span></span></div>
+          </header>
+          <div class="limit-grid">
+            <article class="limit-card">
+              <div class="limit-heading"><span>クレジット利用</span><span id="kiroStatus" class="status kiro-status">確認中</span></div>
+              <div class="meter-label"><span>プラン枠</span><strong id="kiroPercent">—%</strong></div>
+              <div class="progress-track purple-track"><div id="kiroProgress" class="progress-fill purple" style="width: 0%"></div></div>
+              <p class="reset-label">リセットまで <strong id="kiroReset">取得中…</strong><span id="kiroTime"></span></p>
+            </article>
+          </div>
+        </section>
+
+        <section class="provider-section agy-section" aria-labelledby="agy-title" data-provider="agy">
+          <header class="provider-header">
+            <div class="provider-id"><div class="provider-logo agy-logo">✦</div><div><p class="card-kicker">GOOGLE</p><h2 id="agy-title">Gemini</h2></div></div>
+            <div class="provider-meta"><span id="agyPlan" class="plan">確認中</span><span id="agyConnection" class="connection"><i></i><span>CLIから取得</span></span></div>
+          </header>
+          <div class="limit-grid agy-grid">
+            <article class="limit-card">
+              <div class="limit-heading"><span>Gemini 5時間</span><span id="agyGeminiHourStatus" class="status agy-status">確認中</span></div>
+              <div class="meter-label"><span id="agyGeminiHourLabel">5時間制限</span><strong id="agyGeminiHourPercent">—%</strong></div>
+              <div class="progress-track teal-track"><div id="agyGeminiHourProgress" class="progress-fill teal" style="width: 0%"></div></div>
+              <p class="reset-label">リセットまで <strong id="agyGeminiHourReset">取得中…</strong><span id="agyGeminiHourTime"></span></p>
+            </article>
+            <article class="limit-card">
+              <div class="limit-heading"><span>Gemini 週間</span><span id="agyGeminiWeekStatus" class="status agy-status">確認中</span></div>
+              <div class="meter-label"><span id="agyGeminiWeekLabel">週間制限</span><strong id="agyGeminiWeekPercent">—%</strong></div>
+              <div class="progress-track cyan-track"><div id="agyGeminiWeekProgress" class="progress-fill cyan" style="width: 0%"></div></div>
+              <p class="reset-label">リセットまで <strong id="agyGeminiWeekReset">取得中…</strong><span id="agyGeminiWeekTime"></span></p>
+            </article>
+            <article class="limit-card">
+              <div class="limit-heading"><span>Claude/GPT 5時間</span><span id="agyClaudeHourStatus" class="status agy-status">確認中</span></div>
+              <div class="meter-label"><span id="agyClaudeHourLabel">5時間制限</span><strong id="agyClaudeHourPercent">—%</strong></div>
+              <div class="progress-track teal-track"><div id="agyClaudeHourProgress" class="progress-fill teal" style="width: 0%"></div></div>
+              <p class="reset-label">リセットまで <strong id="agyClaudeHourReset">取得中…</strong><span id="agyClaudeHourTime"></span></p>
+            </article>
+            <article class="limit-card">
+              <div class="limit-heading"><span>Claude/GPT 週間</span><span id="agyClaudeWeekStatus" class="status agy-status">確認中</span></div>
+              <div class="meter-label"><span id="agyClaudeWeekLabel">週間制限</span><strong id="agyClaudeWeekPercent">—%</strong></div>
+              <div class="progress-track cyan-track"><div id="agyClaudeWeekProgress" class="progress-fill cyan" style="width: 0%"></div></div>
+              <p class="reset-label">リセットまで <strong id="agyClaudeWeekReset">取得中…</strong><span id="agyClaudeWeekTime"></span></p>
+            </article>
+          </div>
+        </section>
+      </section>
+
+    </main>
+
+    <div id="settingsOverlay" class="settings-overlay hidden" aria-hidden="true">
+      <div class="settings-modal" role="dialog" aria-labelledby="settingsTitle">
+        <header class="settings-header">
+          <h2 id="settingsTitle">表示設定</h2>
+          <button id="settingsClose" class="settings-close" aria-label="閉じる">&times;</button>
+        </header>
+        <p class="settings-desc">表示するプロバイダーと順番を設定します。ドラッグで並び替え、トグルで表示/非表示を切り替えます。</p>
+        <ul id="settingsList" class="settings-list"></ul>
+        <footer class="settings-footer">
+          <button id="settingsSave" class="settings-save">保存して閉じる</button>
+        </footer>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

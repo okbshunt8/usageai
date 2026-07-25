@@ -1,0 +1,36 @@
+{
+  "name": "ai-usage-dashboard",
+  "version": "0.2.1",
+  "description": "Claude usage dashboard mock for Windows",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^37.2.3",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.usageai.dashboard",
+    "productName": "UsageAI",
+    "artifactName": "UsageAI-${version}-portable.${ext}",
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "**/*",
+      "!release*{,/**}",
+      "!dist{,/**}"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    }
+  },
+  "dependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1"
+  }
+}
