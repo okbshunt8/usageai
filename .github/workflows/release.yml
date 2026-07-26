@@ -27,7 +27,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22' # Electron 37 と同じ Node ABI (127)。Electron を上げる際は要見直し
           cache: 'npm'
