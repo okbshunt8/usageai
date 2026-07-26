@@ -26,7 +26,8 @@
     ],
     "win": {
       "target": [
-        "portable"
+        "portable",
+        "zip"
       ]
     }
   },
