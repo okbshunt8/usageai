@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # 後続ステップ（依存パッケージのインストールスクリプトを含む）に
           # push 可能な資格情報を残さない
