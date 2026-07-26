@@ -8,6 +8,12 @@ on:
 permissions:
   contents: write # リリースを作成・アップロードするための権限
 
+# 注意: 下記の uses: は可変タグ参照です。このジョブは contents: write と
+# GITHUB_TOKEN を持つため、各アクションはコミット SHA に固定するのが安全です。
+# ネットワークのある環境で以下を実行し、得た SHA で `@v4` 等を置き換えてください:
+#   for r in actions/checkout:v4 actions/setup-node:v4 softprops/action-gh-release:v2; do \
+#     gh api "repos/${r%%:*}/git/ref/tags/${r##*:}" --jq "\"${r%%:*}@\" + .object.sha"; done
+# 置き換え後も Dependabot (.github/dependabot.yml) が更新を追跡します。
 jobs:
   release:
     runs-on: windows-latest # Windows環境でビルドを実行
@@ -15,17 +21,38 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # 後続ステップ（依存パッケージのインストールスクリプトを含む）に
+          # push 可能な資格情報を残さない
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22' # Electron 37 と同じ Node ABI (127)。Electron を上げる際は要見直し
+          cache: 'npm'
 
+      # npm ci は package-lock.json に完全に従うため、リリースビルドが再現可能になる
+      # （npm install は lockfile 外の新しい依存を引き込む可能性がある）
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Application
         run: npm run build:win
+
+      # 利用者がダウンロードした配布物を検証できるようにする
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path release -File |
+            Where-Object { $_.Name -like 'UsageAI-*.exe' -or $_.Name -like 'UsageAI-*.zip' } |
+            Sort-Object Name
+          if (-not $files) { throw 'No release artifacts found in release/' }
+          $lines = foreach ($f in $files) {
+            "$((Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower())  $($f.Name)"
+          }
+          $lines | Set-Content release/SHA256SUMS.txt -Encoding utf8
+          Get-Content release/SHA256SUMS.txt
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
@@ -35,5 +62,6 @@ jobs:
           files: |
             release/UsageAI-*.exe
             release/UsageAI-*.zip
+            release/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # GitHub Actions を SHA 固定したままでも更新を追跡できるようにする
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Electron / electron-builder / node-pty の更新を検知する。
+  # 注意: Electron のメジャー更新は node-pty のネイティブ ABI と衝突するため
+  # (prebuilt は electron.abi<modules>.node を要求)、マージ前に必ず起動確認すること。
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly

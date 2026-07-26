@@ -2,12 +2,67 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const pty = require('@homebridge/node-pty-prebuilt-multiarch');
 // execSync removed
 
 // Debug file logging is off by default. Enable it by launching with the
 // environment variable USAGEAI_DEBUG=1 (also accepts true/on/yes).
 const DEBUG_LOG = /^(1|true|on|yes)$/i.test(process.env.USAGEAI_DEBUG || '');
+
+const PATHEXT = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD')
+  .split(';').map((e) => e.trim()).filter(Boolean);
+
+function isFile(p) {
+  try { return fs.statSync(p).isFile(); } catch { return false; }
+}
+
+function firstExisting(candidates) {
+  for (const p of candidates) if (p && isFile(p)) return p;
+  return null;
+}
+
+// Mirrors cmd.exe's own lookup (every PATH entry x PATHEXT) with one difference:
+// the current directory is never searched. cmd.exe checks the cwd *before* PATH,
+// which would let anything able to write to our workspace folder shadow the real
+// CLI. Returning an absolute path also makes "CLI not installed" detectable up
+// front instead of surfacing as a 25-60s timeout with a misleading message.
+function resolveOnPath(name) {
+  for (const raw of (process.env.PATH || '').split(';')) {
+    const dir = raw.trim().replace(/^"+|"+$/g, '');
+    if (!dir) continue; // an empty PATH entry means the current directory
+    const base = path.join(dir, name);
+    if (path.extname(name) && isFile(base)) return base;
+    for (const ext of PATHEXT) if (isFile(base + ext)) return base + ext;
+  }
+  return null;
+}
+
+// A .cmd/.bat shim can only be started through cmd.exe, and the obvious
+// `cmd /c <path> <args>` form is not reliable: cmd keeps the quotes around the
+// path only when nothing between them is a shell metacharacter, so a resolved
+// path containing & or ^ gets split apart and the launch fails. Passing the whole
+// command line as one verbatim string (node-pty skips its own quoting when args
+// is a string) plus /s is the shape that survives spaces and metacharacters
+// alike. Real .exe binaries skip cmd entirely. Callers pass literal flags only.
+function spawnCli(exe, args, options) {
+  if (/\.(cmd|bat)$/i.test(exe)) {
+    const line = [`"${exe}"`, ...args].join(' ');
+    return pty.spawn('cmd.exe', `/s /c "${line}"`, options);
+  }
+  return pty.spawn(exe, args, options);
+}
+
+// A CLI that redraws its TUI can emit far more text than we ever need, and every
+// chunk re-scans the whole buffer, so keep only a trailing window: unbounded
+// growth would make the scan cost climb quadratically and freeze the main
+// process. The panels we parse are a few hundred bytes, so 64 KB is ample.
+const MAX_OUTPUT_CHARS = 64 * 1024;
+
+function appendOutput(buffer, chunk) {
+  const next = buffer + chunk;
+  return next.length > MAX_OUTPUT_CHARS ? next.slice(-MAX_OUTPUT_CHARS) : next;
+}
 
 let currentUsageRequest = null;
 
@@ -80,10 +135,17 @@ function parseClaudeUsage(rawOutput) {
   return { session, weekly, plan };
 }
 
+// Known install locations first (fast, unambiguous), then a full PATH lookup so
+// any other layout - nvm/volta/fnm node prefixes, a global npm prefix pointing
+// somewhere else, the native installer - still resolves. Returns null when the
+// CLI genuinely is not installed.
 function resolveClaudeExe() {
-  const p = path.join(process.env.APPDATA || '', 'npm', 'claude.cmd');
-  try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
-  return 'claude.cmd'; // fallback to PATH
+  return firstExisting([
+    path.join(process.env.APPDATA || '', 'npm', 'claude.cmd'),
+    path.join(process.env.ProgramFiles || '', 'nodejs', 'claude.cmd'),
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'claude', 'claude.exe'),
+    path.join(os.homedir(), '.local', 'bin', 'claude.exe')
+  ]) || resolveOnPath('claude');
 }
 
 function fetchClaudeUsage() {
@@ -171,11 +233,11 @@ function fetchClaudeUsage() {
       try { fs.mkdirSync(workspaceDir, { recursive: true }); } catch { /* already exists */ }
 
       log(`spawn: ${claudeExe} --ax-screen-reader (cwd=${workspaceDir})`);
-      terminal = pty.spawn('cmd.exe', ['/c', claudeExe, '--ax-screen-reader'], {
+      terminal = spawnCli(claudeExe, ['--ax-screen-reader'], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
-        output += data;
+        output = appendOutput(output, data);
         const readable = stripTerminalSequences(output);
 
         // claude blocks on a workspace-trust prompt before the REPL starts.
@@ -224,13 +286,16 @@ function resolveCodexExe() {
   try {
     const candidates = fs.readdirSync(base)
       .map((d) => path.join(base, d, 'codex.exe'))
-      .filter((p) => { try { return fs.statSync(p).isFile(); } catch { return false; } });
+      .filter(isFile);
     if (candidates.length) {
       candidates.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
       return candidates[0];
     }
   } catch { /* base missing */ }
-  return 'codex.exe'; // fallback to PATH
+  return firstExisting([
+    path.join(process.env.APPDATA || '', 'npm', 'codex.cmd'),
+    path.join(process.env.ProgramFiles || '', 'nodejs', 'codex.cmd')
+  ]) || resolveOnPath('codex');
 }
 
 function codexRemaining(resetText) {
@@ -345,11 +410,11 @@ function fetchCodexUsage() {
       log(`spawn: ${codexExe} (cwd=${workspaceDir})`);
       // Keep output in the normal terminal buffer. This makes the /status text
       // available to the parser even when Codex redraws its TUI during startup.
-      terminal = pty.spawn(codexExe, ['--no-alt-screen'], {
+      terminal = spawnCli(codexExe, ['--no-alt-screen'], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
-        output += data;
+        output = appendOutput(output, data);
         const readable = stripTerminalSequences(output);
         // Directory-trust prompt is a numbered menu; option 1 is the default -> Enter.
         if (!trustAnswered && /Do you trust|Press enter to continue|Yes, continue/i.test(readable)) {
@@ -391,9 +456,10 @@ function fetchCodexUsage() {
 let currentKiroRequest = null;
 
 function resolveKiroExe() {
-  const p = path.join(process.env.LOCALAPPDATA || '', 'Kiro-Cli', 'kiro-cli.exe');
-  try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
-  return 'kiro-cli.exe'; // fallback to PATH
+  return firstExisting([
+    path.join(process.env.LOCALAPPDATA || '', 'Kiro-Cli', 'kiro-cli.exe'),
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Kiro-Cli', 'kiro-cli.exe')
+  ]) || resolveOnPath('kiro-cli');
 }
 
 function kiroRemaining(dateStr) {
@@ -496,11 +562,11 @@ function fetchKiroUsage() {
       log(`spawn: ${kiroExe} chat --legacy-ui (cwd=${workspaceDir})`);
       // Legacy UI renders /usage as plain sequential text and starts without the
       // heavy MCP init of the new TUI; --trust-tools= grants no tools (read-only).
-      terminal = pty.spawn(kiroExe, ['chat', '--legacy-ui', '--trust-tools='], {
+      terminal = spawnCli(kiroExe, ['chat', '--legacy-ui', '--trust-tools='], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
-        output += data;
+        output = appendOutput(output, data);
         const readable = stripTerminalSequences(output);
         if (!trustAnswered && /Do you trust|Press enter to continue|Yes, continue|trust the files/i.test(readable)) {
           trustAnswered = true;
@@ -540,9 +606,10 @@ let currentAgyRequest = null;
 // Default location: %LOCALAPPDATA%\agy\bin\agy.exe
 function resolveAgyExe() {
   const localAppData = process.env.LOCALAPPDATA || '';
-  const p = path.join(localAppData, 'agy', 'bin', 'agy.exe');
-  try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
-  return 'agy.exe'; // fallback to PATH
+  return firstExisting([
+    path.join(localAppData, 'agy', 'bin', 'agy.exe'),
+    path.join(localAppData, 'Programs', 'Antigravity', 'bin', 'agy.exe')
+  ]) || resolveOnPath('agy');
 }
 
 function agyRemaining(resetText) {
@@ -704,11 +771,11 @@ function fetchAgyUsage() {
       const workspaceDir = path.join(app.getPath('userData'), 'agy-workspace');
       try { fs.mkdirSync(workspaceDir, { recursive: true }); } catch { /* exists */ }
       log(`spawn: ${agyExe} (cwd=${workspaceDir})`);
-      terminal = pty.spawn(agyExe, [], {
+      terminal = spawnCli(agyExe, [], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
-        output += data;
+        output = appendOutput(output, data);
         const readable = stripTerminalSequences(output);
         // agy presents a directory trust prompt with arrow-key selection.
         // "Yes, I trust this folder" is pre-selected; just press Enter.
@@ -751,39 +818,56 @@ function fetchAgyUsage() {
 }
 
 // Settings persistence
-const DEFAULT_SETTINGS = {
-  providers: [
-    { id: 'claude', enabled: true },
-    { id: 'codex', enabled: true },
-    { id: 'kiro', enabled: true },
-    { id: 'agy', enabled: true }
-  ]
-};
+const KNOWN_PROVIDERS = ['claude', 'codex', 'kiro', 'agy'];
 
 function getSettingsPath() {
   return path.join(app.getPath('userData'), 'settings.json');
 }
 
+// settings.json is on disk and reaches the DOM (provider ids are rendered), so
+// never trust its shape: keep only known provider ids, coerce every value to the
+// expected type, and drop anything else. Also applied on save so a compromised
+// renderer cannot persist something the next launch would read back.
+function sanitizeSettings(raw) {
+  const settings = { providers: [] };
+  const seen = new Set();
+  const list = Array.isArray(raw?.providers) ? raw.providers : [];
+  for (const entry of list) {
+    const id = typeof entry?.id === 'string' ? entry.id : null;
+    if (!id || !KNOWN_PROVIDERS.includes(id) || seen.has(id)) continue;
+    seen.add(id);
+    settings.providers.push({ id, enabled: entry.enabled !== false });
+  }
+  // Ensure all known providers exist (in case new ones are added)
+  for (const id of KNOWN_PROVIDERS) {
+    if (!seen.has(id)) settings.providers.push({ id, enabled: true });
+  }
+
+  const zoom = Number(raw?.zoomLevel);
+  if (Number.isFinite(zoom)) settings.zoomLevel = Math.min(200, Math.max(50, Math.round(zoom)));
+
+  const bounds = ['x', 'y', 'width', 'height'].map((key) => Number(raw?.windowBounds?.[key]));
+  if (bounds.every(Number.isFinite)) {
+    settings.windowBounds = {
+      x: Math.round(bounds[0]),
+      y: Math.round(bounds[1]),
+      width: Math.min(10000, Math.max(760, Math.round(bounds[2]))),
+      height: Math.min(10000, Math.max(620, Math.round(bounds[3])))
+    };
+  }
+  return settings;
+}
+
 function loadSettings() {
   try {
-    const data = fs.readFileSync(getSettingsPath(), 'utf8');
-    const settings = JSON.parse(data);
-    // Ensure all known providers exist (in case new ones are added)
-    const known = ['claude', 'codex', 'kiro', 'agy'];
-    const existing = settings.providers.map((p) => p.id);
-    for (const id of known) {
-      if (!existing.includes(id)) {
-        settings.providers.push({ id, enabled: true });
-      }
-    }
-    return settings;
+    return sanitizeSettings(JSON.parse(fs.readFileSync(getSettingsPath(), 'utf8')));
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return sanitizeSettings({});
   }
 }
 
 function saveSettings(settings) {
-  fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), 'utf8');
+  fs.writeFileSync(getSettingsPath(), JSON.stringify(sanitizeSettings(settings), null, 2), 'utf8');
 }
 
 function createWindow() {
@@ -825,6 +909,16 @@ function createWindow() {
   };
   window.on('resize', saveWindowState);
   window.on('move', saveWindowState);
+
+  // The preload (and therefore usageApi, which can start CLIs) stays attached
+  // across navigations, so this window must never leave the bundled page: deny
+  // popups, any navigation away from index.html, and webview attachment.
+  const pageUrl = pathToFileURL(path.join(__dirname, 'index.html')).href;
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-navigate', (event, url) => {
+    if (url.split('#')[0] !== pageUrl) event.preventDefault();
+  });
+  window.webContents.on('will-attach-webview', (event) => event.preventDefault());
 
   // Show the window as soon as the first paint is ready so it appears instantly
   // without a white flash. Usage data is fetched asynchronously by the renderer.

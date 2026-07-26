@@ -293,20 +293,35 @@ const settingsList = document.getElementById('settingsList');
 const settingsSave = document.getElementById('settingsSave');
 
 function renderSettingsList(providers) {
-  settingsList.innerHTML = '';
+  settingsList.textContent = '';
   providers.forEach((p) => {
     const meta = PROVIDER_META[p.id] || { name: p.id, sub: '' };
     const li = document.createElement('li');
     li.className = 'settings-item';
     li.draggable = true;
     li.dataset.id = p.id;
-    li.innerHTML = `
-      <span class="settings-grip">⠿</span>
-      <span class="settings-item-label">${meta.name}<span class="settings-item-sub">${meta.sub}</span></span>
-      <button class="settings-toggle ${p.enabled ? 'active' : ''}" aria-label="表示切替"></button>
-    `;
+
+    // Built with DOM calls rather than innerHTML: the fallback label is the
+    // provider id, which comes from settings.json on disk.
+    const grip = document.createElement('span');
+    grip.className = 'settings-grip';
+    grip.textContent = '⠿';
+
+    const label = document.createElement('span');
+    label.className = 'settings-item-label';
+    label.textContent = meta.name;
+    const sub = document.createElement('span');
+    sub.className = 'settings-item-sub';
+    sub.textContent = meta.sub;
+    label.appendChild(sub);
+
+    const toggle = document.createElement('button');
+    toggle.className = p.enabled ? 'settings-toggle active' : 'settings-toggle';
+    toggle.setAttribute('aria-label', '表示切替');
+
+    li.append(grip, label, toggle);
     // Toggle
-    li.querySelector('.settings-toggle').addEventListener('click', (e) => {
+    toggle.addEventListener('click', (e) => {
       e.currentTarget.classList.toggle('active');
     });
     // Drag events
@@ -326,7 +341,8 @@ function renderSettingsList(providers) {
       e.preventDefault();
       li.classList.remove('drag-over');
       const draggedId = e.dataTransfer.getData('text/plain');
-      const draggedEl = settingsList.querySelector(`[data-id="${draggedId}"]`);
+      // Compared as a plain value instead of built into a CSS selector string.
+      const draggedEl = Array.from(settingsList.children).find((el) => el.dataset.id === draggedId);
       if (draggedEl && draggedEl !== li) {
         settingsList.insertBefore(draggedEl, li);
       }
@@ -352,7 +368,9 @@ async function saveSettingsFromUI() {
     id: li.dataset.id,
     enabled: li.querySelector('.settings-toggle').classList.contains('active')
   }));
-  currentSettings = { providers };
+  // Spread the existing settings so saving the provider list does not drop
+  // zoomLevel / windowBounds (the main process now persists only known keys).
+  currentSettings = { ...currentSettings, providers };
   await window.usageApi.saveSettings(currentSettings);
   closeSettings();
   applySettings();
