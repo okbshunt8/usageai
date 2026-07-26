@@ -1,6 +1,7 @@
 {
   "name": "ai-usage-dashboard",
   "version": "1.0.0",
+  "license": "MIT",
   "description": "Claude usage dashboard mock for Windows",
   "main": "main.js",
   "scripts": {
