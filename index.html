@@ -52,15 +52,15 @@
             <div class="provider-id"><div class="provider-logo codex-logo">⌘</div><div><p class="card-kicker">OPENAI</p><h2 id="codex-title">Codex</h2></div></div>
             <div class="provider-meta"><span id="codexPlan" class="plan">確認中</span><span id="codexConnection" class="connection"><i></i><span>CLIから取得</span></span></div>
           </header>
-          <div class="limit-grid">
+          <div id="codexLimitGrid" class="limit-grid single-column">
             <article class="limit-card">
-              <div class="limit-heading"><span>現在のセッション</span><span id="codexSessionStatus" class="status codex-status">確認中</span></div>
+              <div class="limit-heading"><span id="codexSessionHeading">利用枠</span><span id="codexSessionStatus" class="status codex-status">確認中</span></div>
               <div class="meter-label"><span id="codexSessionLabel">5時間制限</span><strong id="codexSessionPercent">32.0%</strong></div>
               <div class="progress-track violet-track"><div id="codexSessionProgress" class="progress-fill violet" style="width: 32%"></div></div>
               <p class="reset-label">リセットまで <strong id="codexSessionReset">1時間42分</strong><span id="codexSessionTime"> · 本日 17:04</span></p>
             </article>
-            <article class="limit-card">
-              <div class="limit-heading"><span>すべてのモデル</span><span id="codexWeeklyStatus" class="status codex-status">確認中</span></div>
+            <article id="codexWeeklyCard" class="limit-card" hidden>
+              <div class="limit-heading"><span id="codexWeeklyHeading">利用枠</span><span id="codexWeeklyStatus" class="status codex-status">確認中</span></div>
               <div class="meter-label"><span id="codexWeeklyLabel">週間制限</span><strong id="codexWeeklyPercent">64.0%</strong></div>
               <div class="progress-track green-track"><div id="codexWeeklyProgress" class="progress-fill green" style="width: 64%"></div></div>
               <p class="reset-label">リセットまで <strong id="codexWeeklyReset">2日8時間</strong><span id="codexWeeklyTime"> · 土曜日 00:00</span></p>

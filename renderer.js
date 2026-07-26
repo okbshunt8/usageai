@@ -32,6 +32,7 @@ function localizeCodexLabel(label) {
 }
 
 function applyCodexLimit(limit, prefix) {
+  const localizedLabel = localizeCodexLabel(limit.label);
   document.getElementById(`codex${prefix}Percent`).textContent = `${limit.percent.toFixed(1)}%`;
   const progressEl = document.getElementById(`codex${prefix}Progress`);
   const trackEl = progressEl.parentElement;
@@ -39,7 +40,8 @@ function applyCodexLimit(limit, prefix) {
   applyBarColor(progressEl, trackEl, limit.percent);
   document.getElementById(`codex${prefix}Reset`).textContent = limit.remaining || 'リセット時刻を確認';
   document.getElementById(`codex${prefix}Time`).textContent = ` · ${limit.resetAt}`;
-  document.getElementById(`codex${prefix}Label`).textContent = localizeCodexLabel(limit.label);
+  document.getElementById(`codex${prefix}Heading`).textContent = localizedLabel;
+  document.getElementById(`codex${prefix}Label`).textContent = localizedLabel;
   const status = document.getElementById(`codex${prefix}Status`);
   status.classList.remove('over-limit');
   if (limit.percent >= 100) {
@@ -53,6 +55,7 @@ function applyCodexLimit(limit, prefix) {
 }
 
 function setCodexSlot(prefix, { label, reset } = {}) {
+  document.getElementById(`codex${prefix}Heading`).textContent = label || '利用枠';
   document.getElementById(`codex${prefix}Percent`).textContent = '—%';
   document.getElementById(`codex${prefix}Progress`).style.width = '0%';
   document.getElementById(`codex${prefix}Reset`).textContent = reset || '取得中…';
@@ -61,24 +64,36 @@ function setCodexSlot(prefix, { label, reset } = {}) {
   if (label) document.getElementById(`codex${prefix}Label`).textContent = label;
 }
 
+function syncCodexLimitLayout(count) {
+  const grid = document.getElementById('codexLimitGrid');
+  const weeklyCard = document.getElementById('codexWeeklyCard');
+  const showWeekly = count > 1;
+  weeklyCard.hidden = !showWeekly;
+  grid.classList.toggle('single-column', !showWeekly);
+}
+
 async function refreshCodexUsage() {
   const connectionText = document.getElementById('codexConnection').querySelector('span');
   connectionText.textContent = '取得中…';
+  syncCodexLimitLayout(1);
   setCodexSlot('Session');
   setCodexSlot('Weekly');
   try {
     const usage = await window.usageApi.getCodexUsage();
     document.getElementById('codexPlan').textContent = usage.plan;
+    syncCodexLimitLayout(Math.min(usage.limits.length, 2));
     const slots = ['Session', 'Weekly'];
     usage.limits.slice(0, 2).forEach((limit, i) => applyCodexLimit(limit, slots[i]));
-    // If Codex reports fewer buckets than slots (e.g. Free = Monthly only), blank the rest.
-    for (let i = usage.limits.length; i < slots.length; i += 1) {
-      setCodexSlot(slots[i], { label: '—', reset: 'データなし' });
-      document.getElementById(`codex${slots[i]}Status`).textContent = '—';
+    if (usage.limits.length > 1) {
+      for (let i = usage.limits.length; i < slots.length; i += 1) {
+        setCodexSlot(slots[i], { label: '—', reset: 'データなし' });
+        document.getElementById(`codex${slots[i]}Status`).textContent = '—';
+      }
     }
     connectionText.textContent = 'CLI 接続済み';
   } catch (error) {
     connectionText.textContent = '取得できません';
+    syncCodexLimitLayout(1);
     setCodexSlot('Session', { reset: 'エラー' });
     setCodexSlot('Weekly', { reset: 'エラー' });
     document.getElementById('codexSessionStatus').textContent = '—';

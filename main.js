@@ -330,7 +330,9 @@ function fetchCodexUsage() {
       const workspaceDir = path.join(app.getPath('userData'), 'codex-workspace');
       try { fs.mkdirSync(workspaceDir, { recursive: true }); } catch { /* exists */ }
       log(`spawn: ${codexExe} (cwd=${workspaceDir})`);
-      terminal = pty.spawn(codexExe, [], {
+      // Keep output in the normal terminal buffer. This makes the /status text
+      // available to the parser even when Codex redraws its TUI during startup.
+      terminal = pty.spawn(codexExe, ['--no-alt-screen'], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
@@ -361,7 +363,10 @@ function fetchCodexUsage() {
         log(`TIMEOUT. sendAttempts=${sendAttempts} trustAnswered=${trustAnswered}`);
         log(`RAW OUTPUT:\n${stripTerminalSequences(output)}`);
         finish(new Error('Codex CLI からの応答がタイムアウトしました。'));
-      }, 35000);
+      // Codex may initialize configured MCP servers before accepting slash
+      // commands, so its first status read can take noticeably longer than the
+      // other CLIs.
+      }, 60000);
     } catch (error) {
       finish(new Error(`Codex CLI を起動できませんでした: ${error.message}`));
     }
