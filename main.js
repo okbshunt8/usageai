@@ -3,6 +3,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const pty = require('@homebridge/node-pty-prebuilt-multiarch');
+// execSync removed
 
 // Debug file logging is off by default. Enable it by launching with the
 // environment variable USAGEAI_DEBUG=1 (also accepts true/on/yes).
@@ -79,6 +80,12 @@ function parseClaudeUsage(rawOutput) {
   return { session, weekly, plan };
 }
 
+function resolveClaudeExe() {
+  const p = path.join(process.env.APPDATA || '', 'npm', 'claude.cmd');
+  try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
+  return 'claude.cmd'; // fallback to PATH
+}
+
 function fetchClaudeUsage() {
   if (currentUsageRequest) return currentUsageRequest;
 
@@ -151,14 +158,20 @@ function fetchClaudeUsage() {
       setTimeout(trySend, 500);
     };
 
+    const claudeExe = resolveClaudeExe();
+    if (!claudeExe) {
+      finish(new Error('Claude CLI が見つかりません（PATH または %APPDATA%\\npm\\claude.cmd 未検出）。'));
+      return;
+    }
+
     try {
       // Run claude in a dedicated empty folder so it has nothing to touch and
       // the workspace-trust state is deterministic (prompted once, then remembered).
       const workspaceDir = path.join(app.getPath('userData'), 'claude-workspace');
       try { fs.mkdirSync(workspaceDir, { recursive: true }); } catch { /* already exists */ }
 
-      log(`spawn: claude --ax-screen-reader (cwd=${workspaceDir})`);
-      terminal = pty.spawn('cmd.exe', ['/d', '/s', '/c', 'claude --ax-screen-reader'], {
+      log(`spawn: ${claudeExe} --ax-screen-reader (cwd=${workspaceDir})`);
+      terminal = pty.spawn('cmd.exe', ['/c', claudeExe, '--ax-screen-reader'], {
         name: 'xterm-256color', cols: 120, rows: 42, cwd: workspaceDir, env: process.env
       });
       terminal.onData((data) => {
@@ -217,7 +230,7 @@ function resolveCodexExe() {
       return candidates[0];
     }
   } catch { /* base missing */ }
-  return null;
+  return 'codex.exe'; // fallback to PATH
 }
 
 function codexRemaining(resetText) {
@@ -322,7 +335,7 @@ function fetchCodexUsage() {
 
     const codexExe = resolveCodexExe();
     if (!codexExe) {
-      finish(new Error('Codex CLI が見つかりません（%LOCALAPPDATA%\\OpenAI\\Codex 未検出）。'));
+      finish(new Error('Codex CLI が見つかりません（PATH または %LOCALAPPDATA%\\OpenAI\\Codex 未検出）。'));
       return;
     }
 
@@ -380,7 +393,7 @@ let currentKiroRequest = null;
 function resolveKiroExe() {
   const p = path.join(process.env.LOCALAPPDATA || '', 'Kiro-Cli', 'kiro-cli.exe');
   try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
-  return null;
+  return 'kiro-cli.exe'; // fallback to PATH
 }
 
 function kiroRemaining(dateStr) {
@@ -473,7 +486,7 @@ function fetchKiroUsage() {
 
     const kiroExe = resolveKiroExe();
     if (!kiroExe) {
-      finish(new Error('Kiro CLI が見つかりません（%LOCALAPPDATA%\\Kiro-Cli\\kiro-cli.exe 未検出）。'));
+      finish(new Error('Kiro CLI が見つかりません（PATH または %LOCALAPPDATA%\\Kiro-Cli\\kiro-cli.exe 未検出）。'));
       return;
     }
 
@@ -529,7 +542,7 @@ function resolveAgyExe() {
   const localAppData = process.env.LOCALAPPDATA || '';
   const p = path.join(localAppData, 'agy', 'bin', 'agy.exe');
   try { if (fs.statSync(p).isFile()) return p; } catch { /* not found */ }
-  return null;
+  return 'agy.exe'; // fallback to PATH
 }
 
 function agyRemaining(resetText) {
@@ -683,7 +696,7 @@ function fetchAgyUsage() {
 
     const agyExe = resolveAgyExe();
     if (!agyExe) {
-      finish(new Error('Antigravity CLI (agy) が見つかりません（%LOCALAPPDATA%\\agy\\bin\\agy.exe 未検出）。'));
+      finish(new Error('Antigravity CLI (agy) が見つかりません（PATH または %LOCALAPPDATA%\\agy\\bin\\agy.exe 未検出）。'));
       return;
     }
 

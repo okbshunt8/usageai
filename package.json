@@ -1,6 +1,6 @@
 {
   "name": "ai-usage-dashboard",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Claude usage dashboard mock for Windows",
   "main": "main.js",
   "scripts": {
