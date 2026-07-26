@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 「v1.0.0」などのタグがプッシュされた時のみ実行
+
+permissions:
+  contents: write # リリースを作成・アップロードするための権限
+
+jobs:
+  release:
+    runs-on: windows-latest # Windows環境でビルドを実行
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run build:win
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true # いきなり公開せず、一度下書き(Draft)として保存する
+          generate_release_notes: true # コミット履歴からリリースノートを自動生成する
+          files: |
+            release/UsageAI-*.exe
+            release/UsageAI-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
