@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('usageApi', {
   getKiroUsage: () => ipcRenderer.invoke('kiro:usage'),
   getAgyUsage: () => ipcRenderer.invoke('agy:usage'),
   loadSettings: () => ipcRenderer.invoke('settings:load'),
-  saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings)
+  saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
+  openExternal: (url) => ipcRenderer.invoke('open:external', url)
 });

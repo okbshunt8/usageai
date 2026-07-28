@@ -92,3 +92,8 @@ button { font: inherit; cursor: pointer; }
 .settings-footer { padding: 14px 22px 18px; display: flex; justify-content: flex-end; }
 .settings-save { padding: 9px 18px; border: none; border-radius: 8px; background: var(--blue); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; }
 .settings-save:hover { background: #2c66bf; }
+
+/* Usage link button (open in browser) */
+.usage-link-button { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid var(--line); border-radius: 7px; color: #7a8a9e; background: var(--paper); transition: background .15s, color .15s, border-color .15s; }
+.usage-link-button:hover { color: var(--blue); border-color: #b8cbea; background: #f4f8ff; }
+.usage-link-button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

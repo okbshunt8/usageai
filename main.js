@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
@@ -933,6 +933,10 @@ app.whenReady().then(() => {
   ipcMain.handle('agy:usage', fetchAgyUsage);
   ipcMain.handle('settings:load', () => loadSettings());
   ipcMain.handle('settings:save', (_event, settings) => { saveSettings(settings); return true; });
+  ipcMain.handle('open:external', (_event, url) => {
+    // Only allow http/https URLs to prevent arbitrary protocol launches
+    if (/^https?:\/\//i.test(url)) return shell.openExternal(url);
+  });
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

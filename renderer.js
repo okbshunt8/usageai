@@ -283,6 +283,22 @@ const PROVIDER_META = {
   agy: { name: 'Gemini', sub: 'Google (Antigravity CLI)' }
 };
 
+const PROVIDER_USAGE_URLS = {
+  claude: 'https://claude.ai/new#settings/usage',
+  codex: 'https://chatgpt.com/codex/cloud/settings/analytics#usage',
+  agy: 'https://gemini.google.com/usage?hl=ja',
+  kiro: 'https://app.kiro.dev/settings/account'
+};
+
+// Attach click handlers to usage link buttons
+document.querySelectorAll('.usage-link-button[data-provider-link]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const provider = btn.dataset.providerLink;
+    const url = PROVIDER_USAGE_URLS[provider];
+    if (url) window.usageApi.openExternal(url);
+  });
+});
+
 let currentSettings = null;
 
 // --- Settings Modal ---
